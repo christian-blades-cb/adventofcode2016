@@ -58,25 +58,56 @@ func main() {
 	go lexInstructions(os.Stdin, instructionChan)
 	go parseInstructions(instructionChan, vectorChan)
 
-	visits := map[vector]int{}
-	var firstRevisit *vector
+	stops := []vector{vector{x: 0, y: 0}}
 
 	finalVector := vector{}
 	for v := range vectorChan {
 		finalVector.sum(&v)
 		currentCoord := vector{x: finalVector.x, y: finalVector.y}
-		visits[currentCoord]++
-		if visits[currentCoord] > 1 && firstRevisit == nil {
-			firstRevisit = &currentCoord
-		}
+		stops = append(stops, currentCoord)
 	}
 
 	fmt.Println(finalVector.cityBlockDistance())
-	fmt.Printf("%v: %d\n", firstRevisit, firstRevisit.cityBlockDistance())
+	firstRevisit := findFirstCrossing(stops)
+	fmt.Println(firstRevisit.cityBlockDistance())
 }
 
-type coordinates struct {
-	x, y int64
+func direction(origin, destination vector) (direction vector) {
+	if destination.x < origin.x {
+		direction.x = -1
+	} else if destination.x > origin.x {
+		direction.x = 1
+	}
+
+	if destination.y < origin.y {
+		direction.y = -1
+	} else if destination.y > origin.y {
+		direction.y = 1
+	}
+
+	return
+}
+
+func findFirstCrossing(stops []vector) vector {
+	visits := map[vector]int{}
+
+	prev := stops[0]
+	for _, stop := range stops {
+		if stop == prev {
+			continue
+		}
+
+		direction := direction(prev, stop)
+		for current := prev; current != stop; current.sum(&direction) {
+			visits[current]++
+			if visits[current] > 1 {
+				return current
+			}
+		}
+
+		prev = stop
+	}
+	panic("no revisits")
 }
 
 func (v *vector) cityBlockDistance() (blocks int64) {
