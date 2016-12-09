@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"os"
 )
@@ -56,32 +57,89 @@ import (
 // What is the bathroom code?														    //
 //////////////////////////////////////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////////////////////////////
+// --- Part Two ---															 //
+// 																			 //
+// You finally arrive at the bathroom (it's a several minute walk from		 //
+// the lobby so visitors can behold the many fancy conference rooms and		 //
+// water coolers on this floor) and go to punch in the code. Much to your	 //
+// bladder's dismay, the keypad is not at all like you imagined				 //
+// it. Instead, you are confronted with the result of hundreds of			 //
+// man-hours of bathroom-keypad-design meetings:							 //
+// 																			 //
+//     1																	 //
+//   2 3 4																	 //
+// 5 6 7 8 9																 //
+//   A B C																	 //
+//     D																	 //
+// You still start at "5" and stop when you're at an edge, but given the	 //
+// same instructions as above, the outcome is very different:				 //
+// 																			 //
+// You start at "5" and don't move at all (up and left are both edges),		 //
+// ending at 5.																 //
+// 																			 //
+// Continuing from "5", you move right twice and down three times			 //
+// (through "6", "7", "B", "D", "D"), ending at D.							 //
+// 																			 //
+// Then, from "D", you move five more times (through "D", "B", "C", "C",	 //
+// "B"), ending at B.														 //
+// 																			 //
+// Finally, after five more moves, you end at 3.							 //
+// 																			 //
+// So, given the actual keypad layout, the code would be 5DB3.				 //
+// 																			 //
+// Using the same instructions in your puzzle input, what is the correct	 //
+// bathroom code?															 //
+///////////////////////////////////////////////////////////////////////////////
+
 func main() {
-	keypad := [][]int{
-		[]int{1, 2, 3},
-		[]int{4, 5, 6},
-		[]int{7, 8, 9},
+	kp := keypad{
+		[]rune{'1', '2', '3'},
+		[]rune{'4', '5', '6'},
+		[]rune{'7', '8', '9'},
 	}
 
-	finger := newFinger(keypad, 1, 1)
+	fp, err := os.Open("./input.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer fp.Close()
+	printCodes(fp, kp, 1, 1)
 
-	scanner := bufio.NewScanner(os.Stdin)
+	kp2 := keypad{
+		[]rune{'🌭', '🌭', '1', '🌭', '🌭'},
+		[]rune{'🌭', '2', '3', '4', '🌭'},
+		[]rune{'5', '6', '7', '8', '9'},
+		[]rune{'🌭', 'A', 'B', 'C', '🌭'},
+		[]rune{'🌭', '🌭', 'D', '🌭', '🌭'},
+	}
+
+	fp.Seek(0, 0)
+	printCodes(fp, kp2, 0, 2)
+}
+
+func printCodes(in io.Reader, kp keypad, x, y int) {
+	finger := newFinger(kp, x, y)
+
+	scanner := bufio.NewScanner(in)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		instructions := bytes.Runes(scanner.Bytes())
 		finger.do(instructions)
-		fmt.Print(finger.button())
+		fmt.Printf("%c", finger.button())
 	}
 	fmt.Print("\n")
 }
 
+type keypad [][]rune
+
 type finger struct {
 	x, y       int
 	maxX, maxY int
-	keypad     [][]int
+	keypad     keypad
 }
 
-func newFinger(keypad [][]int, startx, starty int) finger {
+func newFinger(keypad keypad, startx, starty int) finger {
 	return finger{
 		x:      startx,
 		y:      starty,
@@ -92,23 +150,32 @@ func newFinger(keypad [][]int, startx, starty int) finger {
 }
 
 func (f *finger) do(instructions []rune) {
+	var x, y int
 	for _, inst := range instructions {
 		switch inst {
 		case 'U', 'u':
-			f.y = maxInt(0, f.y-1)
+			x = f.x
+			y = maxInt(0, f.y-1)
 		case 'D', 'd':
-			f.y = minInt(f.maxY, f.y+1)
+			x = f.x
+			y = minInt(f.maxY, f.y+1)
 		case 'R', 'r':
-			f.x = minInt(f.maxX, f.x+1)
+			y = f.y
+			x = minInt(f.maxX, f.x+1)
 		case 'L', 'l':
-			f.x = maxInt(0, f.x-1)
+			y = f.y
+			x = maxInt(0, f.x-1)
 		default:
 			panic("invalid instruction")
+		}
+		if f.keypad[y][x] != '🌭' {
+			f.x = x
+			f.y = y
 		}
 	}
 }
 
-func (f *finger) button() int {
+func (f *finger) button() rune {
 	return f.keypad[f.y][f.x]
 }
 
